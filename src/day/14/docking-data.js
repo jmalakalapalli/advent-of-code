@@ -649,22 +649,18 @@ const processInstructionForPart2 = (instruction, addressMap) => {
         for (let j = 0; j < maskPositions.length; j++) {
             const currDpLength = dp.length;
             if (currDpLength === 0) {
-                const setBit = BigInt(addressToUse) | BigInt([BigInt(1) << BigInt(maskPositions[j])]);
-                const resetBit = BigInt(addressToUse) & BigInt(~[BigInt(1) << BigInt(maskPositions[j])]);
-                dp.push(setBit);
-                dp.push(resetBit);
+                dp.push(Math.pow(2, maskPositions[j]));
+                dp.push(0);
             } else {
                 for (let k = 0; k < currDpLength; k++) {
-                    const setBit = BigInt(dp[k]) | BigInt([BigInt(1) << BigInt(maskPositions[j])]);
-                    const resetBit = BigInt(dp[k]) & BigInt(~[BigInt(1) << BigInt(maskPositions[j])]);
-                    dp.push(setBit);
-                    dp.push(resetBit);
+                    dp.push(Math.pow(2, maskPositions[j]) + dp[k]);
                 }
             }
         }
 
         for (let k = 0; k < dp.length; k++) {
-            addressMap[dp[k]] = numbersToInsert[i];
+            const addressToWrite = BigInt(BigInt(addressToUse) + BigInt(dp[k]));
+            addressMap[addressToWrite] = numbersToInsert[i];
         }
     }
 };
@@ -711,4 +707,4 @@ const part2Solution = (input) => {
 
 //console.log(`result: ${part1Solution(input)}`);
 
-console.log(`result: ${part2Solution(test_input2)}`);
+console.log(`result: ${part2Solution(input)}`);
