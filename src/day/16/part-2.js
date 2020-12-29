@@ -1,16 +1,3 @@
-const test_input = 'class: 1-3 or 5-7\n' +
-    'row: 6-11 or 33-44\n' +
-    'seat: 13-40 or 45-50\n' +
-    '\n' +
-    'your ticket:\n' +
-    '7,1,14\n' +
-    '\n' +
-    'nearby tickets:\n' +
-    '7,3,47\n' +
-    '40,4,50\n' +
-    '55,2,20\n' +
-    '38,6,12';
-
 const test_input2 = 'class: 0-1 or 4-19\n' +
     'row: 0-5 or 8-19\n' +
     'seat: 0-13 or 16-19\n' +
@@ -290,33 +277,6 @@ const input = 'departure location: 47-691 or 713-954\n' +
     '139,532,360,184,436,415,503,423,388,316,989,910,644,180,362,669,641,571,810,238\n' +
     '327,727,426,729,331,446,372,679,534,899,727,734,335,117,935,923,551,545,627,503';
 
-const parseInput = (input) => {
-    const sections = input.split('\n\n');
-    const fields = sections[0].split('\n');
-    const ranges = [];
-    const nearByTickets = [];
-    const nearByTicketsSection = sections[2].split('\n');
-    const fieldNames = [];
-    for (let i = 0; i < fields.length; i++) {
-        const fieldAndValues = fields[i].split(': ');
-        const fieldWithValues = fieldAndValues[1].split(/\s/g);
-        const firstRange = fieldWithValues[0].split('-');
-        const secondRange = fieldWithValues[2].split('-');
-        const fieldName = fieldAndValues[0];
-        ranges.push([fieldName, parseInt(firstRange[0]), parseInt(firstRange[1])]);
-        ranges.push([fieldName, parseInt(secondRange[0]), parseInt(secondRange[1])]);
-        fieldNames.push(fieldName);
-    }
-
-    for (let i = 1; i < nearByTicketsSection.length; i++) {
-        const ticketWithNumbers = [];
-        const tickets = nearByTicketsSection[i].split(',');
-        tickets.forEach(ticket => ticketWithNumbers.push(parseInt(ticket)));
-        nearByTickets.push(ticketWithNumbers);
-    }
-
-    return {ranges, nearByTickets, fieldNames};
-};
 
 const buildBinarySearchTreeFromRanges = (ranges) => {
     const root = buildBinarySearchTree(ranges, 0, ranges.length - 1);
@@ -341,52 +301,6 @@ const buildBinarySearchTree = (ranges, start, end) => {
     root.right = buildBinarySearchTree(ranges, mid+1, end);
 
     return root;
-};
-
-const part1Solution = (input) => {
-    const {ranges, nearByTickets} = parseInput(input);
-
-    ranges.sort((range1, range2) => {
-        if (range1[1] === range2[1]) {
-            return range1[2] - range2[2];
-        } else {
-            return range1[1] - range2[1];
-        }
-    });
-
-    const root = buildBinarySearchTreeFromRanges(ranges);
-
-    return computeErrorRate(nearByTickets, root);
-
-};
-
-
-const part2Solution = (input) => {
-    const {ranges, nearByTickets, fieldNames} = parseInput(input);
-
-    ranges.sort((range1, range2) => range1[0] - range2[0]);
-
-    const root = buildBinarySearchTreeFromRanges(ranges);
-
-    const {map, remainingTickets} = getFieldMappings(nearByTickets, root, fieldNames);
-
-    console.log(map);
-
-
-};
-
-const computeErrorRate = (nearByTickets, root) => {
-    let errorRate = 0;
-
-    nearByTickets.forEach(ticketWithNumbers => {
-        for (let i = 0; i < ticketWithNumbers.length; i++) {
-            if (!isTicketValid(ticketWithNumbers[i], root)) {
-                errorRate += ticketWithNumbers[i];
-            }
-        }
-    });
-
-    return errorRate;
 };
 
 const getFieldMappings = (nearByTickets, root, fieldNames) => {
@@ -441,4 +355,89 @@ const findValidRange = (ticket, root) => {
 
 };
 
+const parseInput = (input) => {
+    const sections = input.split('\n\n');
+    const fields = sections[0].split('\n');
+    const map = {};
+    const nearByTickets = [];
+    const nearByTicketsSection = sections[2].split('\n');
+    const fieldNames = [];
+    const ranges = [];
+    const myTicket = sections[1].split('\n')[1].split(',').map(val => parseInt(val));
+    for (let i = 0; i < fields.length; i++) {
+        const fieldAndValues = fields[i].split(': ');
+        const fieldWithValues = fieldAndValues[1].split(/\s/g);
+        const firstRange = fieldWithValues[0].split('-');
+        const secondRange = fieldWithValues[2].split('-');
+        const fieldName = fieldAndValues[0];
+        const range = [...firstRange, ...secondRange];
+        ranges.push([fieldName, parseInt(firstRange[0]), parseInt(firstRange[1])]);
+        ranges.push([fieldName, parseInt(secondRange[0]), parseInt(secondRange[1])]);
+        map[fieldName] = range.map(range => parseInt(range));
+        fieldNames.push(fieldName);
+    }
+
+    for (let i = 1; i < nearByTicketsSection.length; i++) {
+        const ticketWithNumbers = [];
+        const tickets = nearByTicketsSection[i].split(',');
+        tickets.forEach(ticket => ticketWithNumbers.push(parseInt(ticket)));
+        nearByTickets.push(ticketWithNumbers);
+    }
+
+    return {nearByTickets, fieldNames, map, ranges, myTicket};
+};
+
+const identifyFields = (mapOfPos, nearByTickets, fieldNames, map, fieldsIdentifiedSoFar, indicesFoundSoFar) => {
+    for (let i = 0; i < fieldNames.length; i++) {
+        if (indicesFoundSoFar.includes(i)) {
+            continue;
+        }
+        const allPossibleFieldsToCheck = fieldNames.filter(field => !fieldsIdentifiedSoFar.includes(field));
+        let j = 0;
+        while (j < nearByTickets.length && allPossibleFieldsToCheck.length > 1) {
+            const num = nearByTickets[j][i];
+            const currPossibleFieldsToCheck = [...allPossibleFieldsToCheck];
+            for (let k = 0; k < currPossibleFieldsToCheck.length; k++) {
+                const rangeToCheck = map[currPossibleFieldsToCheck[k]];
+                if (!((num >= rangeToCheck[0] && num <= rangeToCheck[1]) || (num >= rangeToCheck[2] && num <= rangeToCheck[3]))) {
+                    const index = allPossibleFieldsToCheck.indexOf(currPossibleFieldsToCheck[k]);
+                    allPossibleFieldsToCheck.splice(index, 1);
+                }
+            }
+            j++;
+        }
+        if (allPossibleFieldsToCheck.length === 1) {
+            mapOfPos[allPossibleFieldsToCheck[0]] = i;
+            fieldsIdentifiedSoFar.push(allPossibleFieldsToCheck[0]);
+        }
+    }
+
+    return {mapOfPos, fieldsIdentifiedSoFar };
+};
+
+const part2Solution = (input) => {
+    const {nearByTickets, fieldNames, map, ranges, myTicket} = parseInput(input);
+    ranges.sort((range1, range2) => range1[0] - range2[0]);
+
+    const root = buildBinarySearchTreeFromRanges(ranges);
+
+    const {remainingTickets} = getFieldMappings(nearByTickets, root, fieldNames);
+    let mapOfPos = {};
+    let fieldsIdentifiedSoFar = [];
+    let indicesFoundSoFar = [];
+
+    while (fieldsIdentifiedSoFar.length < fieldNames.length) {
+        const result = identifyFields(mapOfPos, remainingTickets, fieldNames, map, fieldsIdentifiedSoFar, indicesFoundSoFar);
+        indicesFoundSoFar = Object.keys(mapOfPos).map(type => mapOfPos[type]);
+        mapOfPos = result.mapOfPos;
+        fieldsIdentifiedSoFar = result.fieldsIdentifiedSoFar;
+    }
+
+    const departureFields = Object.keys(mapOfPos).filter(key => key.search('departure') !== -1);
+
+    return departureFields.reduce((acc, key) => acc * myTicket[mapOfPos[key]], 1);
+
+};
+
 console.log(part2Solution(input));
+
