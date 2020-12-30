@@ -49,92 +49,107 @@ const parseInput = (input) => {
     return { foodIngredients, foodAllergens };
 };
 
+const initializeMap = (uniqueFoodIngredients, uniqueAllergens) => {
+    const map = {};
+    uniqueFoodIngredients.forEach(ingredient => {
+        map[ingredient] = [...uniqueAllergens]
+    });
+
+    return map;
+};
+
 const getUniqueItems = (items) => {
     const uniqueItems = new Set();
     items.forEach(item => uniqueItems.add(item));
 
-    return {uniqueItems};
+    return [...uniqueItems];
 };
 
-const findAllergensToIngredientsMapping = (remainingAllergensToFind, updatedIngredients, updatedAllergens, map) => {
-    // if there are no more allergens to find, it means we found out all the allergens to ingredients mapping
-    while (remainingAllergensToFind.size > 0) {
-        for (let i = 0; i < updatedIngredients.length; i++) {
-            const ingredients1 = updatedIngredients[i];
-            const allergens1 = updatedAllergens[i];
-            if (ingredients1.length === 1 && allergens1.length === 1) {
-                // if there is only one ingredient and one allergen, it means the allergen belongs to the ingredient
-                map[ingredients1[0]] = allergens1[0];
-                // remove the common ingredient from the ingredients list, as it will make it easier for us to find out information about remaining ingredients
-                removeItemFromArray(updatedIngredients, ingredients1[0]);
-                // remove the common allergen from remainingAllergensToFind, as we have discovered which ingredient this allergen belongs to
-                const allergenToRemove = allergens1[0];
-                removeItemFromArray(updatedAllergens, allergenToRemove);
-                // remove the allergen from remainingAllergensToFind, as we have discovered which ingredient this allergen belongs to
-                remainingAllergensToFind.delete(allergenToRemove);
-                continue;
-            }
-            for (let j = 0; j < updatedIngredients.length; j++) {
-                if (i === j) {
-                    continue;
-                }
-                const ingredients2 = updatedIngredients[j];
-                const allergens2 = updatedAllergens[j];
-                // Core logic is as follows:
-                // consider two food items that contain exactly one common allergen and differ by exactly one ingredient
-                let countOfCommonIngredients = 0;
-                let countOfCommonAllergens = 0;
-                const commonIngredients = [];
-                const commonAllergens = [];
-                ingredients1.forEach(ingredient1 => {
-                    if (ingredients2.includes(ingredient1)) {
-                        countOfCommonIngredients++;
-                        commonIngredients.push(ingredient1);
-                    }
-                });
-                allergens1.forEach(allergen1 => {
-                    if (allergens2.includes(allergen1)) {
-                        countOfCommonAllergens++;
-                        commonAllergens.push(allergen1);
-                    }
-                });
-
-                if (countOfCommonIngredients === 1 && countOfCommonAllergens === 1) {
-                    // it means that the common allergen belongs to common ingredient
-                    map[commonIngredients[0]] = commonAllergens[0];
-                    // remove the common ingredient from the ingredients list, as it will make it easier for us to find out information about remaining ingredients
-
-                    removeItemFromArray(updatedIngredients, commonIngredients[0]);
-
-                    // remove the common allergen from the allergens list
-
-                    removeItemFromArray(updatedAllergens, commonAllergens[0]);
-
-                    // remove the common allergen from remainingAllergensToFind, as we have discovered which ingredient this allergen belongs to
-                    remainingAllergensToFind.delete(commonAllergens[0]);
+const ruleOutAllergensFromIngredients = (map, foodIngredients, foodAllergens, uniqueFoodIngredients) => {
+    for (let i = 0; i < foodIngredients.length; i++) {
+        const remainingIngredients = uniqueFoodIngredients.filter(ingredient => !foodIngredients[i].includes(ingredient));
+        for (let j = 0; j < remainingIngredients.length; j++) {
+            // for all the allergens in the first food item, remove the corresponding allergen entry from the ingredients that are not part of the corresponding ingredients list
+            const allergensToRemoveFromThoseIngredients = foodAllergens[i];
+            const ingredientAllergens = map[remainingIngredients[j]];
+            for (let k = 0; k < allergensToRemoveFromThoseIngredients.length; k++) {
+                const index = ingredientAllergens.indexOf(allergensToRemoveFromThoseIngredients[k]);
+                if (index !== -1) {
+                    ingredientAllergens.splice(index, 1);
                 }
             }
+
         }
     }
 };
 
-const removeItemFromArray = (items, item) => {
-    items.forEach(arrItem => {
-        const index = arrItem.indexOf(item);
-        if (index > -1) {
-            arrItem.splice(index, 1);
+const keepRulingOutAllergensInLoop = (ingredientsToAllergensMap, uniqueFoodIngredients) => {
+    let remainingIngredientsToCheck = uniqueFoodIngredients.filter(ingredient => ingredientsToAllergensMap[ingredient].length > 1);
+    while (remainingIngredientsToCheck.length > 0) {
+        const ingredientsWith1To1Mapping = uniqueFoodIngredients.filter(ingredient => ingredientsToAllergensMap[ingredient].length === 1);
+        for (let i = 0; i < ingredientsWith1To1Mapping.length; i++) {
+            // get the corresponding allergen and remove it from the allergen list for the remaining ingredients
+            const allergenToRemove = ingredientsToAllergensMap[ingredientsWith1To1Mapping[i]][0];
+            for (let j = 0; j < remainingIngredientsToCheck.length; j++) {
+                const allergensList = ingredientsToAllergensMap[remainingIngredientsToCheck[j]];
+                const index = allergensList.indexOf(allergenToRemove);
+                if (index !== -1) {
+                    allergensList.splice(index, 1);
+                }
+            }
         }
-    });
-
+        remainingIngredientsToCheck = uniqueFoodIngredients.filter(ingredient => ingredientsToAllergensMap[ingredient].length > 1);
+    }
 }
+
+const getFrequencyOfIngredients = (foodIngredients) => {
+    const map = {};
+    for (let i = 0; i < foodIngredients.length; i++) {
+        for (let j = 0; j < foodIngredients[i].length; j++) {
+            if (map[foodIngredients[i][j]]) {
+                map[foodIngredients[i][j]] += 1;
+            } else {
+                map[foodIngredients[i][j]] = 1;
+            }
+        }
+    }
+
+    return map;
+}
+
 
 const part1Solution = (input) => {
     const { foodIngredients, foodAllergens } = parseInput(input);
-    const { uniqueItems: uniqueAllergens } = getUniqueItems(foodAllergens.flat());
-    const map = {};
-    findAllergensToIngredientsMapping(uniqueAllergens, foodIngredients, foodAllergens, map);
+    const mapOfFrequency = getFrequencyOfIngredients(foodIngredients);
+    const uniqueAllergens = getUniqueItems(foodAllergens.flat());
+    const uniqueFoodIngredients = getUniqueItems(foodIngredients.flat());
+    const ingredientsToAllergensMap = initializeMap(uniqueFoodIngredients, uniqueAllergens);
+    ruleOutAllergensFromIngredients(ingredientsToAllergensMap, foodIngredients, foodAllergens, uniqueFoodIngredients);
 
-    console.log(map);
+    return Object.keys(ingredientsToAllergensMap).filter(ingredient => ingredientsToAllergensMap[ingredient].length === 0).reduce((acc, ingredient) =>
+    acc + mapOfFrequency[ingredient], 0);
 };
 
-part1Solution(realInput);
+const part2Solution = (input) => {
+    const { foodIngredients, foodAllergens } = parseInput(input);
+    const uniqueAllergens = getUniqueItems(foodAllergens.flat());
+    const uniqueFoodIngredients = getUniqueItems(foodIngredients.flat());
+    const ingredientsToAllergensMap = initializeMap(uniqueFoodIngredients, uniqueAllergens);
+    ruleOutAllergensFromIngredients(ingredientsToAllergensMap, foodIngredients, foodAllergens, uniqueFoodIngredients);
+    keepRulingOutAllergensInLoop(ingredientsToAllergensMap, uniqueFoodIngredients);
+    const ingredientsWith1To1Mapping = uniqueFoodIngredients.filter(ingredient => ingredientsToAllergensMap[ingredient].length !== 0);
+
+    return ingredientsWith1To1Mapping.sort((a,b) => {
+        if (ingredientsToAllergensMap[a][0] < ingredientsToAllergensMap[b][0]) {
+            return -1;
+        } else if (ingredientsToAllergensMap[a][0] > ingredientsToAllergensMap[b][0]) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }).join(',');
+
+};
+
+//console.log(part1Solution(realInput));
+console.log(part2Solution(realInput));
