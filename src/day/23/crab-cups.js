@@ -47,7 +47,7 @@ const pickPreviousNCupsIndices = (circle, currCupIndex, n) => {
     }
 
     return previousNCupsIndices;
-}
+};
 const pickDestination = (circle, currCup, pickedCups, highestCup) => {
     let tempCup = currCup - 1 === 0 ? highestCup : currCup - 1;
     if (!pickedCups.includes(tempCup)) {
@@ -135,7 +135,7 @@ const placePickedCupsAndMaintainCircleV2 = (circle, pickedCupsIndices, destinati
         circle[currentCupDisplacedIndex] = cupsDisplaced[i];
         currentCupDisplacedIndex = getPreviousCupIndex(circle, currentCupDisplacedIndex);
     }
-}
+};
 
 const play = (circle, moves, noOfCupsToPick) => {
     let i = 0;
@@ -177,6 +177,6 @@ const part2Solution = (input, moves, totalNumberOfCups, numberOfCupsToPick) => {
     // const immediateClockwiseFirstCupIndex = circle[getNextCupIndex(circle, circle.indexOf(1))];
     // const immediateClockwiseSecondCupIndex = circle[getNextCupIndex(circle, circle.indexOf(1) + 1)];
     // console.log(immediateClockwiseFirstCupIndex * immediateClockwiseSecondCupIndex);
-}
+};
 
-console.log(part2Solution(realInput, 10000000, 1000000, 3));
+console.log(part2Solution(testInput, 10000000, 100, 3));
