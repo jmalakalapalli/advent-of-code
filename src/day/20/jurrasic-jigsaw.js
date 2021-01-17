@@ -1832,7 +1832,8 @@ const realInput = 'Tile 1217:\n' +
     '#......###\n' +
     '........#.\n' +
     '.#.##...#.\n' +
-    '..#..#####\n';
+    '..#..#####';
+
 
 const parseInput = (input) => {
     const tilesArr = input.split('\n\n');
@@ -1950,76 +1951,246 @@ const rotateMatrix = (a, dir) => {
     return newMatrix;
 };
 
-const separateCornersV2 = (tiles) => {
-    const borderTileIds = [];
-    const cornerTileIds = [];
-    const centerTileIds = [];
-    const remainingTileIds = [];
-    const tileRotationMap = {};
-    const tileIds = Object.keys(tiles);
-    for (let i = 0; i < tileIds.length; i++) {
-        let totalMatch = 0;
-        const tileId1 = tileIds[i];
-        let tile1Info = tiles[tileId1].tileInfo;
-        const tile1Arr = tiles[tileId1].tileArr;
-        const rotateTile1 = !tileRotationMap[tileId1];
-        const matchingTileIds = new Set();
-
-        for (let j = 0; j < tile1Info.length; j++) {
-            if (tileIds.some(tileId2 => {
-                const tileId2Info = tiles[tileId2];
-                if (tileId1 !== tileId2 && tileId2Info.includes(tile1Info[j])) {
-                    matchingTileIds.add(tileId2);
-                    return true;
-                }
-                return false;
-            })) {
-                totalMatch++;
-            }
-        }
-        totalMatch = totalMatch / 2;
-        if (totalMatch > 3) {
-            centerTileIds.push(tileIds[i]);
-        } else if (totalMatch === 3) {
-            borderTileIds.push(tileIds[i]);
-        } else if (totalMatch === 2) {
-            cornerTileIds.push(tileIds[i]);
-        } else {
-            remainingTileIds.push(tileIds[i]);
-        }
-    }
-
-    return {nonCornerTileIds: borderTileIds, cornerTileIds, centerTileId: centerTileIds};
-};
 
 const updateTileInfo = (tiles, tileId, tileArr) => {
     const rightArr = [];
     const leftArr = [];
     const n = tileArr[0].length;
-    for (let i = 1; i < tileArr.length; i++) {
+    for (let i = 0; i < tileArr.length; i++) {
         rightArr.push(tileArr[i][n-1]);
         leftArr.push(tileArr[i][0]);
     }
-    tiles[tileId] = {
-        tileInfo: [tileArr[0].join(''),
-            rightArr.join(''),
-            tileArr[tileArr.length - 1].join(''),
-            leftArr.join(''),
-            tileArr[0].split('').reverse().join(''),
-            rightArr.reverse().join(''),
-            tileArr[tileArr.length - 1].split('').reverse().join(''),
-            leftArr.reverse().join(''),
-        ],
-        tileArr
-    };
+    tiles[tileId].tileInfo = [tileArr[0].join(''),
+        rightArr.join(''),
+        tileArr[tileArr.length - 1].join(''),
+        leftArr.join(''),
+        tileArr[0].slice().reverse().join(''),
+        rightArr.slice().reverse().join(''),
+        tileArr[tileArr.length - 1].slice().reverse().join(''),
+        leftArr.slice().reverse().join('')];
+    tiles[tileId].tileArr = tileArr;
+};
+
+const rotateAndUpdateTileInfo = (tiles, tileId, dir) => {
+    const rotatedArr = rotateMatrix(tiles[tileId].tileArr, dir);
+    updateTileInfo(tiles, tileId, rotatedArr);
+};
+
+const initializeTileMatrix = (rows) => {
+    const tileMatrix = [];
+    for (let i = 0; i < rows; i++) {
+        tileMatrix[i] = [];
+    }
+
+    return tileMatrix;
+};
+
+const buildMatrix = (tiles, cornerTileIds) => {
+    const tileStack = [cornerTileIds[3]];
+    const tileIdsToLookup = Object.keys(tiles);
+    const n = Math.sqrt(tileIdsToLookup.length);
+    const tileMatrix = initializeTileMatrix(n);
+    let currTileId = tileStack[tileStack.length - 1];
+    let currTileInfo = tiles[currTileId].tileInfo;
+    let dir = 1;
+    let otherDir = 3;
+    let currBorder = currTileInfo[dir];
+    const currTileIdIndex = tileIdsToLookup.indexOf(currTileId);
+    tileIdsToLookup.splice(currTileIdIndex, 1);
+    let neighborTileId = tileIdsToLookup.find(tileId => tiles[tileId].tileInfo.includes(currBorder));
+    if (!neighborTileId) {
+        dir = 3;
+        otherDir = 1;
+        currBorder = currTileInfo[dir];
+        neighborTileId = tileIdsToLookup.find(tileId => tiles[tileId].tileInfo.includes(currBorder));
+    }
+    let currCol = dir === 3 ? -1 : n;
+
+    // Move right or left depending on dir and otherDir
+    while (neighborTileId) {
+        tileStack.push(neighborTileId);
+        const neighborTileIdIndex = tileIdsToLookup.indexOf(neighborTileId);
+        tileIdsToLookup.splice(neighborTileIdIndex, 1);
+        let neighborTileInfo = tiles[neighborTileId].tileInfo;
+        while (currTileInfo[dir] !== neighborTileInfo[otherDir]) {
+            if (currTileInfo[dir] === neighborTileInfo[dir]) {
+                rotateAndUpdateTileInfo(tiles, neighborTileId, 'horizontal');
+            } else {
+                rotateAndUpdateTileInfo(tiles, neighborTileId, 'clockwise');
+            }
+            neighborTileInfo = tiles[neighborTileId].tileInfo;
+        }
+        currTileInfo = neighborTileInfo;
+        currTileId = neighborTileId;
+        currBorder = neighborTileInfo[dir];
+        neighborTileId = tileIdsToLookup.find(tileId => tiles[tileId].tileInfo.includes(currBorder));
+    }
+
+
+    // Move down or up
+
+    const columnDirToGo = dir === 3 ? 1 : -1;
+    while (!!tileStack.length) {
+        let currRow = 0;
+        currCol = currCol + columnDirToGo;
+        currTileId = tileStack.pop();
+        tileMatrix[currRow][currCol] = currTileId;
+        currTileInfo = tiles[currTileId].tileInfo;
+        dir = 2;
+        otherDir = 0;
+        currBorder = currTileInfo[dir];
+        neighborTileId = tileIdsToLookup.find(tileId => tiles[tileId].tileInfo.includes(currBorder));
+        if (!neighborTileId) {
+            dir = 0;
+            otherDir = 2;
+            currBorder = currTileInfo[dir];
+            neighborTileId = tileIdsToLookup.find(tileId => tiles[tileId].tileInfo.includes(currBorder));
+        }
+        while (neighborTileId) {
+            const neighborTileIdIndex = tileIdsToLookup.indexOf(neighborTileId);
+            tileIdsToLookup.splice(neighborTileIdIndex, 1);
+            let neighborTileInfo = tiles[neighborTileId].tileInfo;
+            while (currTileInfo[dir] !== neighborTileInfo[otherDir]) {
+                if (currTileInfo[dir] === neighborTileInfo[dir]) {
+                    rotateAndUpdateTileInfo(tiles, neighborTileId, 'vertical');
+                } else {
+                    rotateAndUpdateTileInfo(tiles, neighborTileId, 'clockwise');
+                }
+                neighborTileInfo = tiles[neighborTileId].tileInfo;
+            }
+            currRow++;
+            tileMatrix[currRow][currCol] = neighborTileId;
+            currBorder = neighborTileInfo[dir];
+            currTileId = neighborTileId;
+            currTileInfo = neighborTileInfo;
+            neighborTileId = tileIdsToLookup.find(tileId => tiles[tileId].tileInfo.includes(currBorder));
+        }
+    }
+
+    console.log(tileMatrix.toString());
+    return tileMatrix;
+};
+
+const findSeaMonsters = (tiles, tileMatrix, tileRows, tileCols) => {
+    const regex = new RegExp('#(.[^]{77})#(....)##(....)##(....)###(.[^]{77})#(..)#(..)#(..)#(..)#(..)#(...)', 'g');
+
+    let str = getSeaMonsterString(tiles, tileMatrix, tileRows, tileCols);
+    let matches;
+    let i = 0;
+    while (i < 4) {
+        i++;
+        str = getSeaMonsterString(tiles, tileMatrix, tileRows, tileCols);
+        matches = str.match(regex);
+        if (matches) break;
+
+        tileMatrix = rotateMatrix(tileMatrix, 'horizontal');
+        rotateAllTiles(tiles, 'horizontal');
+        str = getSeaMonsterString(tiles, tileMatrix, tileRows, tileCols);
+        matches = str.match(regex);
+        if (matches) break;
+        tileMatrix = rotateMatrix(tileMatrix, 'horizontal');
+        rotateAllTiles(tiles, 'horizontal');
+
+        tileMatrix = rotateMatrix(tileMatrix, 'vertical');
+        rotateAllTiles(tiles, 'vertical');
+        str = getSeaMonsterString(tiles, tileMatrix, tileRows, tileCols);
+        matches = str.match(regex);
+        if (matches) break;
+        tileMatrix = rotateMatrix(tileMatrix, 'vertical');
+        rotateAllTiles(tiles, 'vertical');
+
+        tileMatrix = rotateMatrix(tileMatrix, 'horizontal');
+        tileMatrix = rotateMatrix(tileMatrix, 'vertical');
+        rotateAllTiles(tiles, 'horizontal');
+        rotateAllTiles(tiles, 'vertical');
+        str = getSeaMonsterString(tiles, tileMatrix, tileRows, tileCols);
+        matches = str.match(regex);
+        if (matches) break;
+        tileMatrix = rotateMatrix(tileMatrix, 'vertical');
+        tileMatrix = rotateMatrix(tileMatrix, 'horizontal');
+        rotateAllTiles(tiles, 'vertical');
+        rotateAllTiles(tiles, 'horizontal');
+
+        tileMatrix = rotateMatrix(tileMatrix, 'clockwise');
+        rotateAllTiles(tiles, 'clockwise');
+    }
+
+    console.log('totalMatches', matches);
+    let totalSeaMonsters = 0;
+    const seaMonstersStartIndices = new Set();
+    if (matches) {
+        let match = regex.exec(str);
+        while (match) {
+            seaMonstersStartIndices.add(match.index);
+            regex.lastIndex = match.index + 1;
+            match = regex.exec(str);
+            totalSeaMonsters++;
+        }
+    }
+
+    console.log('totalSeaMonsters ', totalSeaMonsters);
+    console.log('finds ', seaMonstersStartIndices.size);
+    return seaMonstersStartIndices;
+};
+
+const rotateAllTiles = (tiles, dir) => {
+    const tileIds = Object.keys(tiles);
+    for (let i = 0; i < tileIds.length; i++) {
+        rotateAndUpdateTileInfo(tiles, tileIds[i], dir);
+    }
+};
+
+const getSeaMonsterString = (tiles, tileMatrix, tileRows, tileCols) => {
+    const rows = tileMatrix.length;
+    const cols = tileMatrix[0].length;
+    let str = '';
+    for (let i = 0; i < rows; i++) {
+        for (let k = 1; k < tileRows - 1; k++) {
+            for (let j = 0; j < cols; j++) {
+                const tileId = tileMatrix[i][j];
+                try {
+                    const tileArr = tiles[tileId].tileArr;
+                    for (let l = 1; l < tileCols - 1; l++) {
+                        str = str + tileArr[k][l];
+                    }
+                } catch (e) {
+                    console.log('i & j', i, j);
+                    console.log('tileMatrix', tileMatrix);
+                    console.log(e);
+                }
+            }
+            str = str + "\n";
+        }
+    }
+
+    if (str.match(/.####...#####..#...###../)) {
+        console.log('string is matching', str);
+    }
+    return str.trim();
 };
 
 const part1Solution = (input => {
     const { tiles } = parseInput(input);
-    const {nonCornerTileIds, cornerTileIds, centerTileId} = separateCorners(tiles);
-
-    return cornerTileIds.reduce((acc, tileId) => acc * BigInt(tileId), 1n);
+    separateCorners(tiles);
 
 });
 
-console.log(part1Solution(realInput));
+const part2Solution = (input) => {
+    const { tiles } = parseInput(input);
+    const {cornerTileIds} = separateCorners(tiles);
+    const cornerArr = tiles[cornerTileIds[0]].tileArr;
+    const tileMatrix = buildMatrix(tiles, cornerTileIds);
+    const tileRows = cornerArr.length;
+    const tileCols = cornerArr[0].length;
+    const seaMonsters = findSeaMonsters(tiles, tileMatrix, tileRows, tileCols) || [];
+    const totalHashRegex = /#/g;
+    let str = getSeaMonsterString(tiles, tileMatrix, tileRows, tileCols);
+    const totalHash = str.match(totalHashRegex).length;
+    console.log('totalHash', totalHash);
+    const waterRoughness = totalHash - (15 * seaMonsters.size);
+    console.log ('waterRoughness ', waterRoughness);
+
+    return waterRoughness;
+};
+
+console.log(part2Solution(realInput));
